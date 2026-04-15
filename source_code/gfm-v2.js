@@ -814,16 +814,56 @@ function addLayerSelector(mapToChange, defaultValue, position) {
       }
     });
     
+    var shareable_url_label = ui.Label('Open Custom URL', {shown: false});
+
     var link_button = ui.Button({
       label: 'Get Shareable URL',
       onClick: function() {
         updateLink(selectedState, selectedCountry);
+        var url;
+        if (drawnAOI === false && selectedState && selectedCountry) {
+          url = 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2#' +
+            'pfd0='    + ui.url.get('pfd0')    + ';' +
+            'pfd1='    + ui.url.get('pfd1')    + ';' +
+            'dfd0='    + ui.url.get('dfd0')    + ';' +
+            'dfd1='    + ui.url.get('dfd1')    + ';' +
+            'sd0='     + ui.url.get('sd0')     + ';' +
+            'sd1='     + ui.url.get('sd1')     + ';' +
+            'state='   + ui.url.get('state')   + ';' +
+            'country=' + ui.url.get('country') + ';' +
+            'zvv='     + ui.url.get('zvv')     + ';' +
+            'zvh='     + ui.url.get('zvh')     + ';' +
+            'pow='     + ui.url.get('pow')     + ';' +
+            'pass='    + ui.url.get('pass')    + ';' +
+            'elev='    + ui.url.get('elev')    + ';' +
+            'slp='     + ui.url.get('slp');
+        } else {
+          url = 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2#' +
+            'pfd0='  + ui.url.get('pfd0')  + ';' +
+            'pfd1='  + ui.url.get('pfd1')  + ';' +
+            'dfd0='  + ui.url.get('dfd0')  + ';' +
+            'dfd1='  + ui.url.get('dfd1')  + ';' +
+            'sd0='   + ui.url.get('sd0')   + ';' +
+            'sd1='   + ui.url.get('sd1')   + ';' +
+            'llat='  + ui.url.get('llat')  + ';' +
+            'llong=' + ui.url.get('llong') + ';' +
+            'rlat='  + ui.url.get('rlat')  + ';' +
+            'rlong=' + ui.url.get('rlong') + ';' +
+            'zvv='   + ui.url.get('zvv')   + ';' +
+            'zvh='   + ui.url.get('zvh')   + ';' +
+            'pow='   + ui.url.get('pow')   + ';' +
+            'pass='  + ui.url.get('pass')  + ';' +
+            'elev='  + ui.url.get('elev')  + ';' +
+            'slp='   + ui.url.get('slp');
+        }
+        shareable_url_label.setUrl(url);
+        shareable_url_label.style().set({shown: true});
       }
     });
     
-    
     controlPanel.add(portal_button);
     controlPanel.add(link_button);
+    controlPanel.add(shareable_url_label);
 
       
     controlPanel.add(
@@ -946,10 +986,10 @@ function addLayerSelector(mapToChange, defaultValue, position) {
     
     // Add button and link to download flood TIFF map
     var tiff_instructions_label = ui.Label('To download, open your terminal and navigate to the desired download directory. Then, copy and paste the command below:', {shown: false});
-    var tiff_download_label = ui.Label('TIFF Link', {shown: false});
+    var tiff_download_label = ui.Label('GeoTIFF Link', {shown: false});
 
     var tiff_download_button = ui.Button({
-      label: 'TIFF',
+      label: 'GeoTIFF',
       onClick: function() {
         exportControls.clear();
         // Smoothing Radius Slider (affects both smoothing values)
@@ -995,7 +1035,7 @@ function addLayerSelector(mapToChange, defaultValue, position) {
                 cellSizeValue+'m_SR'+smoothingValue
             );
   
-            var tiff_label = ui.Label('TIFF link', {shown: true});
+            var tiff_label = ui.Label('GeoTIFF link', {shown: true});
             tiff_label.setUrl(tiff_url);
           
             rightSubPanel2.add(tiff_label);
@@ -1192,6 +1232,7 @@ function updateChart(map, defaultValue, controlPanel) {
 
 // display the flood impact portal and clear existing UI elements
 function displayFloodImpactPortal(aoi) {
+  updateLink(selectedState, selectedCountry);
   // Import datasets
   var flood = getFloodImage(
     getSentinel1WithinDateRange(start_date[0], advance_days[0]),
@@ -2009,9 +2050,46 @@ function displayFloodImpactPortal(aoi) {
     fileFormat:  'GeoTIFF'      
   });
   
+  var returnUrl;
+  if (drawnAOI === false && selectedState && selectedCountry) {
+    returnUrl = 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2#' +
+      'pfd0='    + ui.url.get('pfd0')    + ';' +
+      'pfd1='    + ui.url.get('pfd1')    + ';' +
+      'dfd0='    + ui.url.get('dfd0')    + ';' +
+      'dfd1='    + ui.url.get('dfd1')    + ';' +
+      'sd0='     + ui.url.get('sd0')     + ';' +
+      'sd1='     + ui.url.get('sd1')     + ';' +
+      'state='   + ui.url.get('state')   + ';' +
+      'country=' + ui.url.get('country') + ';' +
+      'zvv='     + ui.url.get('zvv')     + ';' +
+      'zvh='     + ui.url.get('zvh')     + ';' +
+      'pow='     + ui.url.get('pow')     + ';' +
+      'pass='    + ui.url.get('pass')    + ';' +
+      'elev='    + ui.url.get('elev')    + ';' +
+      'slp='     + ui.url.get('slp');
+  } else {
+    returnUrl = 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2#' +
+      'pfd0='  + ui.url.get('pfd0')  + ';' +
+      'pfd1='  + ui.url.get('pfd1')  + ';' +
+      'dfd0='  + ui.url.get('dfd0')  + ';' +
+      'dfd1='  + ui.url.get('dfd1')  + ';' +
+      'sd0='   + ui.url.get('sd0')   + ';' +
+      'sd1='   + ui.url.get('sd1')   + ';' +
+      'llat='  + ui.url.get('llat')  + ';' +
+      'llong=' + ui.url.get('llong') + ';' +
+      'rlat='  + ui.url.get('rlat')  + ';' +
+      'rlong=' + ui.url.get('rlong') + ';' +
+      'zvv='   + ui.url.get('zvv')   + ';' +
+      'zvh='   + ui.url.get('zvh')   + ';' +
+      'pow='   + ui.url.get('pow')   + ';' +
+      'pass='  + ui.url.get('pass')  + ';' +
+      'elev='  + ui.url.get('elev')  + ';' +
+      'slp='   + ui.url.get('slp');
+  }
+  
   chartPanel.add(ui.Label({
     value: 'Return to flood mapper',
-    targetUrl: 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2'
+    targetUrl: returnUrl
   }));
   
   
