@@ -7,6 +7,8 @@
 3. With some rough idea about the flood dates, select a date range. This should be the minimum number of days required to cover the area. The minimum number of scenes required to wholly cover an area should be determined by a test-and-trial approach, by trying out different values for the 'succeeding days' field. <br/>
 4. Switch off the flood map from the layers dropdown and toggle between the pre-flood image and the during-flood image using the slider in the center. Test a few values for the during-flood date range and finalize one that shows the most difference visually while toggling. Water/sand appears dark in color, but a change in black from the pre-flood image and during-flood image will only represent new water. Once finalized, turn on the flood map layer. <br/>
 5. Click on the download button to get the flood extent as a TIFF, SHP, or PNG file. <br/>
+    - Note: Small differences between the PNG, GeoTIFF, and SHP outputs may occur because each export type is generated differently in Google Earth Engine. The PNG is exported as a rendered visualization at a fixed display resolution, the GeoTIFF uses the selected raster cell size, and the SHP is generated from vectorized raster classes. As a result, slight pixel and boundary misalignments may occur between the exported products.
+
 
 ## Advanced options <br/>
 
