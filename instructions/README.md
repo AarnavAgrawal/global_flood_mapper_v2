@@ -8,6 +8,8 @@
 4. Switch off the flood map from the layers dropdown and toggle between the pre-flood image and the during-flood image using the slider in the center. Test a few values for the during-flood date range and finalize one that shows the most difference visually while toggling. Water/sand appears dark in color, but a change in black from the pre-flood image and during-flood image will only represent new water. Once finalized, turn on the flood map layer. <br/>
 5. Click on the download button to get the flood extent as a TIFF, SHP, or PNG file. <br/>
 
+> Note: minor differences can occur between the PNG, GeoTIFF, and shapefile outputs. This is because each is generated independently and on the fly: the PNG is rendered at a fixed display resolution (1000 px wide) for quick preview; the GeoTIFF is exported at your chosen cell size from the map's RGB visualization, which can add minor resampling; and the shapefile is vectorized directly from the raw classified raster (`reduceToVectors`), so its boundaries follow the original pixels rather than the resampled GeoTIFF. We do not force them to align (e.g., with `reproject`), as this exceeds GEE's computation limits over large areas and would break the app's on-the-fly processing. For quantitative analysis use the GeoTIFF or shapefile; the PNG is for quick visualization only.
+
 ## Advanced options <br/>
 
 <img src="../media/GFM-v2-instructionspg2.png" height="154" width="172">
