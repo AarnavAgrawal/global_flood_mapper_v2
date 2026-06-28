@@ -198,113 +198,159 @@ var floodLegend = {
 
 // ===== Module: floodMapExport =====
 var floodMapExport = {
-  // Define a function to smoothen the raster and export the shapefile
-  getFloodShpUrl: function(floodLayer, radius, aoi, cellSize, filename) {
-    // Define a boxcar or low-pass kernel.
-    var boxcar = ee.Kernel.square({
-      radius: radius, units: 'pixels', magnitude: 1
+  // Internal function to apply consistent smoothing to categorical flood map
+  _getSmoothedFlood: function(floodLayer, radiusPixels, aoi) {
+    if (radiusPixels <= 0) return floodLayer;
+    
+    // Define kernel in pixels (matching UI units)
+    var kernel = ee.Kernel.square({
+      radius: radiusPixels, units: 'pixels', magnitude: 1
     });
     
-    //low-confidence flood export
-    var low_flood = floodLayer.eq(1).or(floodLayer.eq(2)).convolve(boxcar);
-    var low_flood_binary = low_flood.updateMask(low_flood.gt(0.5)).gt(0);
+    var ow = floodLayer.eq(4);
+    var high = floodLayer.eq(3);
+    var low = floodLayer.eq(1).or(floodLayer.eq(2));
     
-    var low_vectors = low_flood_binary.reduceToVectors({
+    // Smoothen each class
+    var sOw = ow.convolve(kernel).gt(0.5);
+    var sHigh = high.convolve(kernel).gt(0.5);
+    var sLow = low.convolve(kernel).gt(0.5);
+    
+    // Reassemble with precedence: Water > High Conf > Low Conf
+    return ee.Image(0)
+      .where(sLow, 1)
+      .where(sHigh, 3)
+      .where(sOw, 4)
+      .clip(aoi);
+  },
+
+  // Define a function to smoothen the raster and export the shapefile
+  getFloodShpUrl: function(floodLayer, radiusPixels, aoi, cellSize, filename) {
+    var smoothed = this._getSmoothedFlood(floodLayer, radiusPixels, aoi);
+    
+    // non-water export (value 0)
+    var non_water_vectors = smoothed.eq(0).selfMask().reduceToVectors({
       geometry: aoi,
-      crs: floodLayer.projection(),
+      crs: 'EPSG:4326',
       scale: cellSize,
       geometryType: 'polygon',
       eightConnected: false,
       labelProperty: 'zone',
       maxPixels: 9e12
-      });
+    });
+
+    // low-confidence flood export (values 1 and 2 merged)
+    var low_vectors = smoothed.eq(1).selfMask().reduceToVectors({
+      geometry: aoi,
+      crs: 'EPSG:4326',
+      scale: cellSize,
+      geometryType: 'polygon',
+      eightConnected: false,
+      labelProperty: 'zone',
+      maxPixels: 9e12
+    });
     
-    var low_vector_features = ee.FeatureCollection(low_vectors);
+    // high-confidence flood export (value 3)
+    var high_vectors = smoothed.eq(3).selfMask().reduceToVectors({
+      geometry: aoi,
+      crs: 'EPSG:4326',
+      scale: cellSize,
+      geometryType: 'polygon',
+      eightConnected: false,
+      labelProperty: 'zone',
+      maxPixels: 9e12
+    });
+
+    // permanent open water export (value 4)
+    var permanent_water_vectors = smoothed.eq(4).selfMask().reduceToVectors({
+      geometry: aoi,
+      crs: 'EPSG:4326',
+      scale: cellSize,
+      geometryType: 'polygon',
+      eightConnected: false,
+      labelProperty: 'zone',
+      maxPixels: 9e12
+    });
     
-    // print download url
-    var low_vector_url = low_vector_features.getDownloadURL({
+    var non_water_url = ee.FeatureCollection(non_water_vectors).getDownloadURL({
       format: 'shp',
-      filename: filename
+      filename: filename + '_non_water'
+    });
+
+    var low_vector_url = ee.FeatureCollection(low_vectors).getDownloadURL({
+      format: 'shp',
+      filename: filename + '_low'
+    });
+
+    var high_vector_url = ee.FeatureCollection(high_vectors).getDownloadURL({
+      format: 'shp',
+      filename: filename + '_high'
+    });
+
+    var permanent_water_url = ee.FeatureCollection(permanent_water_vectors).getDownloadURL({
+      format: 'shp',
+      filename: filename + '_permanent_water'
+    });
+
+    Export.table.toDrive({
+      collection: non_water_vectors,
+      description: 'Flood_Map_SHP_NonWater',
+      folder:      'GFM_Flood_Exports',  
+      fileNamePrefix: filename + '_non_water',
+      fileFormat: 'SHP'
     });
 
     Export.table.toDrive({
       collection: low_vectors,
       description: 'Flood_Map_SHP_LowConf',
       folder:      'GFM_Flood_Exports',  
-      fileNamePrefix: 'SHP_flood_map_low',
+      fileNamePrefix: filename + '_low',
       fileFormat: 'SHP'
-    });
-
-    
-    //high-confidence flood export
-    var high_flood = floodLayer.eq(3).convolve(boxcar);
-    var high_flood_binary = high_flood.updateMask(high_flood.gt(0.5)).gt(0);
-    
-    var high_vectors = high_flood_binary.reduceToVectors({
-      geometry: aoi,
-      crs: floodLayer.projection(),
-      scale: cellSize,
-      geometryType: 'polygon',
-      eightConnected: false,
-      labelProperty: 'zone',
-      maxPixels: 9e12
-    });
-    
-    var high_vector_features = ee.FeatureCollection(high_vectors);
-    
-    // print download url
-    var high_vector_url = high_vector_features.getDownloadURL({
-      format: 'shp',
-      filename: filename
     });
 
     Export.table.toDrive({
       collection: high_vectors,
       description: 'Flood_Map_SHP_HighConf',
       folder:      'GFM_Flood_Exports',  
-      fileNamePrefix: 'SHP_flood_map_high',
+      fileNamePrefix: filename + '_high',
+      fileFormat: 'SHP'
+    });
+
+    Export.table.toDrive({
+      collection: permanent_water_vectors,
+      description: 'Flood_Map_SHP_PermanentWater',
+      folder:      'GFM_Flood_Exports',  
+      fileNamePrefix: filename + '_permanent_water',
       fileFormat: 'SHP'
     });
     
-    
-    return ee.List([low_vector_url, high_vector_url]);
+    return ee.List([non_water_url, low_vector_url, high_vector_url, permanent_water_url]);
   },
   
   // Define a function to smoothen the map and export the TIFF
-  getFloodTiffUrl: function(floodLayer, radius, aoi, cellSize, filename) {
-  
-    // Define a boxcar or low-pass kernel.
-    var boxcar = ee.Kernel.square({
-      radius: radius, units: 'pixels', magnitude: 1
-    });
+  getFloodTiffUrl: function(floodLayer, radiusPixels, aoi, cellSize, filename) {
+    var smoothed = this._getSmoothedFlood(floodLayer, radiusPixels, aoi);
     
     var visParams = {
-      min:     1,
+      min:     0,
       max:     4,
-      palette: [
-        '#E3E3E3', // 0 - non-water; non-flood
-        '#F8E806', // 1 - VV only
-        '#F8E806', // 2 - VH only
-        '#D20103', // 3 - VV + VH
-        '#031DC9'  // 4 - Permanent open water
-      ]
+      palette: mapFloods.palette
     };
-    var colored = floodLayer.visualize(visParams);
+    var colored = smoothed.visualize(visParams);
     
-    // download url
     var tiff_url = colored.getDownloadURL({
       region: aoi,
       scale: cellSize,
       crs: "EPSG:4326",
       format: 'GEO_TIFF',
-      }
-    );
+      filename: filename
+    });
 
     Export.image.toDrive({
       image: colored,   
       description: 'Flood_Map_TIFF',
       folder:      'GFM_Flood_Exports_TIFF',
-      fileNamePrefix: 'TIFF_Flood_Map',
+      fileNamePrefix: filename,
       region:      aoi,
       scale:       cellSize,
       crs:         "EPSG:4326",
@@ -312,7 +358,6 @@ var floodMapExport = {
     });
     
     return tiff_url;
-  
   }
 };
 
@@ -814,16 +859,56 @@ function addLayerSelector(mapToChange, defaultValue, position) {
       }
     });
     
+    var shareable_url_label = ui.Label('Open Custom URL', {shown: false});
+
     var link_button = ui.Button({
       label: 'Get Shareable URL',
       onClick: function() {
         updateLink(selectedState, selectedCountry);
+        var url;
+        if (drawnAOI === false && selectedState && selectedCountry) {
+          url = 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2#' +
+            'pfd0='    + ui.url.get('pfd0')    + ';' +
+            'pfd1='    + ui.url.get('pfd1')    + ';' +
+            'dfd0='    + ui.url.get('dfd0')    + ';' +
+            'dfd1='    + ui.url.get('dfd1')    + ';' +
+            'sd0='     + ui.url.get('sd0')     + ';' +
+            'sd1='     + ui.url.get('sd1')     + ';' +
+            'state='   + ui.url.get('state')   + ';' +
+            'country=' + ui.url.get('country') + ';' +
+            'zvv='     + ui.url.get('zvv')     + ';' +
+            'zvh='     + ui.url.get('zvh')     + ';' +
+            'pow='     + ui.url.get('pow')     + ';' +
+            'pass='    + ui.url.get('pass')    + ';' +
+            'elev='    + ui.url.get('elev')    + ';' +
+            'slp='     + ui.url.get('slp');
+        } else {
+          url = 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2#' +
+            'pfd0='  + ui.url.get('pfd0')  + ';' +
+            'pfd1='  + ui.url.get('pfd1')  + ';' +
+            'dfd0='  + ui.url.get('dfd0')  + ';' +
+            'dfd1='  + ui.url.get('dfd1')  + ';' +
+            'sd0='   + ui.url.get('sd0')   + ';' +
+            'sd1='   + ui.url.get('sd1')   + ';' +
+            'llat='  + ui.url.get('llat')  + ';' +
+            'llong=' + ui.url.get('llong') + ';' +
+            'rlat='  + ui.url.get('rlat')  + ';' +
+            'rlong=' + ui.url.get('rlong') + ';' +
+            'zvv='   + ui.url.get('zvv')   + ';' +
+            'zvh='   + ui.url.get('zvh')   + ';' +
+            'pow='   + ui.url.get('pow')   + ';' +
+            'pass='  + ui.url.get('pass')  + ';' +
+            'elev='  + ui.url.get('elev')  + ';' +
+            'slp='   + ui.url.get('slp');
+        }
+        shareable_url_label.setUrl(url);
+        shareable_url_label.style().set({shown: true});
       }
     });
     
-    
     controlPanel.add(portal_button);
     controlPanel.add(link_button);
+    controlPanel.add(shareable_url_label);
 
       
     controlPanel.add(
@@ -849,9 +934,9 @@ function addLayerSelector(mapToChange, defaultValue, position) {
       onClick: function() {
         exportControls.clear();
         // Smoothing Radius Slider (affects both smoothing values)
-        var shpSmoothingSliderLabel = ui.Label('Smoothing Radius');
+        var shpSmoothingSliderLabel = ui.Label('Smoothing Radius (px)');
         var shpSmoothingSlider = ui.Slider({
-          min: 1,
+          min: 0,
           max: 10,
           value: 3,
           step: 1,
@@ -859,7 +944,7 @@ function addLayerSelector(mapToChange, defaultValue, position) {
         });
   
         // Cell Size Slider (affects the cell size)
-        var shpCellSizeLabel = ui.Label('Cell Size');
+        var shpCellSizeLabel = ui.Label('Cell Size (m)');
         var shpCellSizeSlider = ui.Slider({
           min: 10,
           max: 1000,
@@ -892,17 +977,27 @@ function addLayerSelector(mapToChange, defaultValue, position) {
             );
             
             urls.evaluate(function(urlList){
-              var lowUrl = urlList[0];
-              var highUrl = urlList[1];
+              var nonWaterUrl = urlList[0];
+              var lowUrl = urlList[1];
+              var highUrl = urlList[2];
+              var permanentWaterUrl = urlList[3];
               
+              var shp_label_0 = ui.Label('SHP link (Non-Water)', {shown: true});
+              shp_label_0.setUrl(nonWaterUrl);
+
               var shp_label_1 = ui.Label('SHP link (Low Confidence)', {shown: true});
               shp_label_1.setUrl(lowUrl);
             
               var shp_label_2 = ui.Label('SHP link (High Confidence)', {shown: true});
               shp_label_2.setUrl(highUrl);
 
+              var shp_label_3 = ui.Label('SHP link (Permanent Water)', {shown: true});
+              shp_label_3.setUrl(permanentWaterUrl);
+
+              rightSubPanel2.add(shp_label_0);
               rightSubPanel2.add(shp_label_1);
               rightSubPanel2.add(shp_label_2);
+              rightSubPanel2.add(shp_label_3);
 
             });
 
@@ -933,7 +1028,9 @@ function addLayerSelector(mapToChange, defaultValue, position) {
       label: 'PNG',
       onClick: function() {
         var flood_image = rightMap.layers().get(2).getEeObject();
-        var pngToExport = flood_image.visualize({'min':0, 'max':4, 'palette':mapFloods.palette, 'forceRgbOutput':true});
+        // Use consistent visualization and resolution
+        var visParams = {min:0, max:4, palette:mapFloods.palette, forceRgbOutput:true};
+        var pngToExport = flood_image.visualize(visParams);
         var png_url = pngToExport.getThumbURL({
           dimensions: 1000,
           region: aoi,
@@ -946,16 +1043,16 @@ function addLayerSelector(mapToChange, defaultValue, position) {
     
     // Add button and link to download flood TIFF map
     var tiff_instructions_label = ui.Label('To download, open your terminal and navigate to the desired download directory. Then, copy and paste the command below:', {shown: false});
-    var tiff_download_label = ui.Label('TIFF Link', {shown: false});
+    var tiff_download_label = ui.Label('GeoTIFF Link', {shown: false});
 
     var tiff_download_button = ui.Button({
-      label: 'TIFF',
+      label: 'GeoTIFF',
       onClick: function() {
         exportControls.clear();
         // Smoothing Radius Slider (affects both smoothing values)
-        var smoothingSliderLabel = ui.Label('Smoothing Radius');
+        var smoothingSliderLabel = ui.Label('Smoothing Radius (px)');
         var smoothingSlider = ui.Slider({
-          min: 1,
+          min: 0,
           max: 10,
           value: 3,
           step: 1,
@@ -963,7 +1060,7 @@ function addLayerSelector(mapToChange, defaultValue, position) {
         });
   
         // Cell Size Slider (affects the cell size)
-        var cellSizeLabel = ui.Label('Cell Size');
+        var cellSizeLabel = ui.Label('Cell Size (m)');
         var cellSizeSlider = ui.Slider({
           min: 10,
           max: 1000,
@@ -995,7 +1092,7 @@ function addLayerSelector(mapToChange, defaultValue, position) {
                 cellSizeValue+'m_SR'+smoothingValue
             );
   
-            var tiff_label = ui.Label('TIFF link', {shown: true});
+            var tiff_label = ui.Label('GeoTIFF link', {shown: true});
             tiff_label.setUrl(tiff_url);
           
             rightSubPanel2.add(tiff_label);
@@ -1192,6 +1289,7 @@ function updateChart(map, defaultValue, controlPanel) {
 
 // display the flood impact portal and clear existing UI elements
 function displayFloodImpactPortal(aoi) {
+  updateLink(selectedState, selectedCountry);
   // Import datasets
   var flood = getFloodImage(
     getSentinel1WithinDateRange(start_date[0], advance_days[0]),
@@ -1399,9 +1497,6 @@ function displayFloodImpactPortal(aoi) {
   landscan = mask_pop(landscan);
   
   
-  // Clear the root
-  ui.root.clear();
-  
   // Create a main panel to hold everything
   var mainPanel = ui.Panel({
     layout: ui.Panel.Layout.Flow('vertical'),
@@ -1460,7 +1555,7 @@ function displayFloodImpactPortal(aoi) {
   mainPanel.add(bottomRow);
   
   // Add the main panel to the UI
-  ui.root.add(mainPanel);
+  // ui.root.add(mainPanel); // This will be done later
   
   // Create maps for each panel
   var floodMap = ui.Map();
@@ -2009,9 +2104,46 @@ function displayFloodImpactPortal(aoi) {
     fileFormat:  'GeoTIFF'      
   });
   
+  var returnUrl;
+  if (drawnAOI === false && selectedState && selectedCountry) {
+    returnUrl = 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2#' +
+      'pfd0='    + ui.url.get('pfd0')    + ';' +
+      'pfd1='    + ui.url.get('pfd1')    + ';' +
+      'dfd0='    + ui.url.get('dfd0')    + ';' +
+      'dfd1='    + ui.url.get('dfd1')    + ';' +
+      'sd0='     + ui.url.get('sd0')     + ';' +
+      'sd1='     + ui.url.get('sd1')     + ';' +
+      'state='   + ui.url.get('state')   + ';' +
+      'country=' + ui.url.get('country') + ';' +
+      'zvv='     + ui.url.get('zvv')     + ';' +
+      'zvh='     + ui.url.get('zvh')     + ';' +
+      'pow='     + ui.url.get('pow')     + ';' +
+      'pass='    + ui.url.get('pass')    + ';' +
+      'elev='    + ui.url.get('elev')    + ';' +
+      'slp='     + ui.url.get('slp');
+  } else {
+    returnUrl = 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2#' +
+      'pfd0='  + ui.url.get('pfd0')  + ';' +
+      'pfd1='  + ui.url.get('pfd1')  + ';' +
+      'dfd0='  + ui.url.get('dfd0')  + ';' +
+      'dfd1='  + ui.url.get('dfd1')  + ';' +
+      'sd0='   + ui.url.get('sd0')   + ';' +
+      'sd1='   + ui.url.get('sd1')   + ';' +
+      'llat='  + ui.url.get('llat')  + ';' +
+      'llong=' + ui.url.get('llong') + ';' +
+      'rlat='  + ui.url.get('rlat')  + ';' +
+      'rlong=' + ui.url.get('rlong') + ';' +
+      'zvv='   + ui.url.get('zvv')   + ';' +
+      'zvh='   + ui.url.get('zvh')   + ';' +
+      'pow='   + ui.url.get('pow')   + ';' +
+      'pass='  + ui.url.get('pass')  + ';' +
+      'elev='  + ui.url.get('elev')  + ';' +
+      'slp='   + ui.url.get('slp');
+  }
+  
   chartPanel.add(ui.Label({
     value: 'Return to flood mapper',
-    targetUrl: 'https://ptripathy.users.earthengine.app/view/global-flood-mapper-v2'
+    targetUrl: returnUrl
   }));
   
   
@@ -2094,8 +2226,21 @@ function displayFloodImpactPortal(aoi) {
   
   populationMap.add(popLegend);
   
-  // Set a center location for all maps (automatically updates all maps due to linking)
-  floodMap.centerObject(aoi, 11);
+  var pop_loading_label = ui.Label('Calculating affected population...', {color: 'gray', fontSize: '12px'});
+  pop_chartBox.add(pop_loading_label);
+  
+  // Set the root to the new portal UI
+  ui.root.clear();
+  ui.root.add(mainPanel);
+  
+  // Now that panels are in ui.root, we can safely update the charts and zoom
+  updateBarChart();
+  pop_chartBox.remove(pop_loading_label);
+
+  // Use a short delay to ensure maps are fully initialized and linked before centering
+  ui.util.setTimeout(function() {
+    floodMap.centerObject(aoi);
+  }, 100);
 }
 
 var leftPiece = ui.Panel(

@@ -38,3 +38,5 @@
 3. For the gridded population map, you can choose the dataset to use for the map calculations using the dropdown menu. You can also disable and enable the flood extent overlay.
 4. To download the impact maps, you must run the script of the app in the Google Earth Engine Code Editor. This will create a Google Drive export task to export the maps as TIFFs.
 5. Click the "Return to flood mapper" text to return to the Global Flood Mapper. 
+
+Depending on the size of the area of interest, GFM v2 may take some time to display the data, so allow it to run for a few minutes, if needed.
