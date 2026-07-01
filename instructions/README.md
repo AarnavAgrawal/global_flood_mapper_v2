@@ -31,7 +31,7 @@
 <img src="../media/GFM-v2-instructionspg3.png">
 
 1. Click the "Get Shareable URL" button to save the existing parameters and/or share the flood extent map with other users.
-2. Click the "Launch Flood Impact Portal" button to get to the Flood Impact Portal.
+2. Click the "Launch Flood Impact Portal" button and wait a few seconds for the portal to load. While processing, a loading symbol appears in the affected-population chart (bottom right) to show that a computation is running.
 
 <img src="../media/GFM-v2-instructionspg4.png">
 
