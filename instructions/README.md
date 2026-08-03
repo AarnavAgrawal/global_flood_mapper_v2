@@ -10,6 +10,8 @@
     - Note: Small differences between the PNG, GeoTIFF, and SHP outputs may occur because each export type is generated differently in Google Earth Engine. The PNG is exported as a rendered visualization at a fixed display resolution, the GeoTIFF uses the selected raster cell size, and the SHP is generated from vectorized raster classes. As a result, slight pixel and boundary misalignments may occur between the exported products.
 
 
+> Note: minor differences can occur between the PNG, GeoTIFF, and shapefile outputs. This is because each is generated independently and on the fly: the PNG is rendered at a fixed display resolution (1000 px wide) for quick preview; the GeoTIFF is exported at your chosen cell size from the map's RGB visualization, which can add minor resampling; and the shapefile is vectorized directly from the raw classified raster (`reduceToVectors`), so its boundaries follow the original pixels rather than the resampled GeoTIFF. We do not force them to align (e.g., with `reproject`), as this exceeds GEE's computation limits over large areas and would break the app's on-the-fly processing. For quantitative analysis use the GeoTIFF or shapefile; the PNG is for quick visualization only.
+
 ## Advanced options <br/>
 
 <img src="../media/GFM-v2-instructionspg2.png" height="154" width="172">
@@ -31,7 +33,7 @@
 <img src="../media/GFM-v2-instructionspg3.png">
 
 1. Click the "Get Shareable URL" button to save the existing parameters and/or share the flood extent map with other users.
-2. Click the "Launch Flood Impact Portal" button to get to the Flood Impact Portal.
+2. Click the "Launch Flood Impact Portal" button and wait a few seconds for the portal to load. While processing, a loading symbol appears in the affected-population chart (bottom right) to show that a computation is running.
 
 <img src="../media/GFM-v2-instructionspg4.png">
 

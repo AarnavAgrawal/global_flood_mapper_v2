@@ -2333,20 +2333,21 @@ function displayFloodImpactPortal(aoi) {
   
   populationMap.add(popLegend);
   
+  var pop_loading_label = ui.Label('Calculating affected population...', {color: 'gray', fontSize: '12px'});
+  pop_chartBox.add(pop_loading_label);
+  
   // Set the root to the new portal UI
   ui.root.clear();
   ui.root.add(mainPanel);
-
-  // Now that panels are in ui.root, we can safely update the charts and zoom.
-  // This replaces the 'Calculating affected population...' placeholder that
-  // pop_chartHolder was seeded with.
+  
+  // Now that panels are in ui.root, we can safely update the charts and zoom
   updateBarChart();
+  pop_chartBox.remove(pop_loading_label);
 
-  // Centre now the maps are attached, then again as the layout settles (see
-  // centerPortalOnAoi above for why one pass is not enough)
-  centerPortalOnAoi();
-  ui.util.setTimeout(centerPortalOnAoi, 700);
-  ui.util.setTimeout(centerPortalOnAoi, 1800);
+  // Use a short delay to ensure maps are fully initialized and linked before centering
+  ui.util.setTimeout(function() {
+    floodMap.centerObject(aoi);
+  }, 100);
 }
 
 var leftPiece = ui.Panel(
